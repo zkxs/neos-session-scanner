@@ -17,6 +17,13 @@ impl Request {
     pub fn connect(short_identifier: String) -> Request {
         Request::Connect(Connect { mystery_number: 0, short_identifier })
     }
+
+    pub fn serialize(self, dst: &mut BytesMut) -> Result<(), Error> {
+        match self {
+            Request::NatPunch(r) => r.serialize(dst),
+            Request::Connect(r) => r.serialize(dst),
+        }
+    }
 }
 
 pub trait Serialize {

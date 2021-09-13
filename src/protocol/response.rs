@@ -58,6 +58,7 @@ trait Deserialize {
     fn deserialize(src: &mut BytesMut) -> Result<Response, Error>;
 }
 
+#[derive(Debug)]
 pub struct NatPunch {
     /// should be zero?
     pub mystery_number: u8,
@@ -81,6 +82,7 @@ impl Deserialize for NatPunch {
     }
 }
 
+#[derive(Debug)]
 pub struct NatPunchError {
     pub response: String,
 }
@@ -92,6 +94,7 @@ impl Deserialize for NatPunchError {
     }
 }
 
+#[derive(Debug)]
 pub struct Connect {
     /// should be one?
     pub mystery_number: u8,
@@ -107,6 +110,7 @@ impl Deserialize for Connect {
     }
 }
 
+#[derive(Debug)]
 pub struct Unknown {
     pub bytes: Vec<u8>,
 }

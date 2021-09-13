@@ -27,7 +27,7 @@ impl Encoder<Request> for Codec {
     type Error = Error;
 
     fn encode(&mut self, item: Request, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        todo!()
+        item.serialize(dst)
     }
 }
 

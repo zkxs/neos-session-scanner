@@ -1,11 +1,14 @@
+use std::net::{SocketAddr, ToSocketAddrs};
+
 use clap::{App, Arg};
+use futures::{SinkExt, StreamExt};
 use tokio::net::UdpSocket;
+use tokio::time::Duration;
 use tokio_util::udp::UdpFramed;
-use futures::{FutureExt, SinkExt, stream, StreamExt};
 
 use crate::protocol::Codec;
 use crate::protocol::request::Request;
-use std::net::{SocketAddr, ToSocketAddrs};
+use crate::protocol::response::Response;
 
 mod protocol;
 
@@ -21,23 +24,100 @@ async fn main() {
             .index(1))
         .get_matches();
 
-    let matchmaker_addr: SocketAddr = "matchx.centralus.cloudapp.azure.com:12500".to_socket_addrs().unwrap().next().expect("No DNS results");
+    let matchmaker_addr: SocketAddr = "matchx.centralus.cloudapp.azure.com:12500"
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .expect("No DNS results for matchmaker");
+
     let session_id = matches.value_of("SESSION_ID").expect("Session ID was missing");
 
     let socket = UdpSocket::bind("0.0.0.0:0").await.unwrap();
-    let framed = UdpFramed::new(socket, Codec::default());
-    let (mut tx, rx) = framed.split();
+    let port = socket.local_addr().unwrap().port();
+    let mut socket = UdpFramed::new(socket, Codec::default());
+    let request = Request::nat_punch("169.254.203.224".into(), port.into(), format!("C;{}", session_id));
 
-    let request = Request::nat_punch("".into(), 0, "".into());
+    println!("sending request on port {} for {}", port, session_id);
+    socket.send((request, matchmaker_addr)).await.expect("failed to send nat punch");
 
-    todo!();
+    println!("sent request! awaiting response...");
 
-    tx.send((request, matchmaker_addr)).await.expect("failed to send nat punch");
-    drop(tx);
+    let (response, _) = socket.next().await
+        .expect("some matchmaker result")
+        .expect("no matchmaker error");
 
-    // TODO: consume from rx
+    println!("got response:");
 
-    println!("Hello, world! {}", session_id);
+    match response {
+        Response::NatPunch(r) => {
+            println!("{:?}", r);
+
+            let host_addr: SocketAddr = format!("{}:{}", r.remote_host, r.remote_port)
+                .to_socket_addrs()
+                .unwrap()
+                .next()
+                .expect("No DNS results for session host");
+
+            let request = Request::connect(session_id.to_lowercase());
+
+            println!("sending followup connect to {}...", host_addr);
+            socket.send((request, host_addr)).await.expect("failed to send connect");
+            println!("got response:");
+
+            let (response, _) = socket.next().await
+                .expect("some connect result")
+                .expect("no connect error");
+
+            match response {
+                Response::NatPunch(r) => println!("{:?}", r),
+                Response::NatPunchError(r) => println!("{:?}", r),
+                Response::Connect(r) => println!("{:?}", r),
+                Response::Unknown(r) => println!("{:?}", r),
+            }
+        }
+        Response::NatPunchError(r) => println!("{:?}", r),
+        Response::Connect(r) => println!("{:?}", r),
+        Response::Unknown(r) => println!("{:?}", r),
+    }
+
+    // check for additional response
+    println!("waiting for additional response...");
+    let (response, _) = socket.next().await
+        .expect("some connect result")
+        .expect("no connect error");
+
+    match response {
+        Response::NatPunch(r) => println!("{:?}", r),
+        Response::NatPunchError(r) => println!("{:?}", r),
+        Response::Connect(r) => println!("{:?}", r),
+        Response::Unknown(r) => println!("{:?}", r),
+    }
+
+
+    let mut looping = true;
+    while looping {
+        // check for additional response
+        println!("waiting for additional response...");
+        let future = tokio::time::timeout(Duration::from_millis(750), socket.next());
+
+        match future.await {
+            Ok(result) => {
+                let (response, _) = result
+                    .expect("some connect result")
+                    .expect("no connect error");
+
+                match response {
+                    Response::NatPunch(r) => println!("{:?}", r),
+                    Response::NatPunchError(r) => println!("{:?}", r),
+                    Response::Connect(r) => println!("{:?}", r),
+                    Response::Unknown(r) => println!("{:?}", r),
+                }
+            }
+            Err(_) => {
+                // timeout occurred
+                looping = false;
+            }
+        }
+    }
+    println!("Done.");
 }
-
-struct Foo {}
