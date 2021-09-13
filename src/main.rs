@@ -6,9 +6,7 @@ use tokio::net::UdpSocket;
 use tokio::time::Duration;
 use tokio_util::udp::UdpFramed;
 
-use crate::protocol::Codec;
-use crate::protocol::request::Request;
-use crate::protocol::response::Response;
+use crate::protocol::{Codec, Request, Response};
 
 mod protocol;
 
@@ -81,7 +79,7 @@ async fn main() {
     }
 
     // check for additional response
-    println!("waiting for additional response...");
+    println!("waiting for additional responses...");
     let (response, _) = socket.next().await
         .expect("some connect result")
         .expect("no connect error");
@@ -97,7 +95,7 @@ async fn main() {
     let mut looping = true;
     while looping {
         // check for additional response
-        println!("waiting for additional response...");
+        println!("waiting for additional responses...");
         let future = tokio::time::timeout(Duration::from_millis(750), socket.next());
 
         match future.await {

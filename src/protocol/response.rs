@@ -3,58 +3,9 @@ use std::io::Read;
 
 use bytes::{Buf, BytesMut};
 
-use crate::protocol::Error;
+use crate::protocol::{Error, Response};
 
-pub enum Response {
-    NatPunch(NatPunch),
-    NatPunchError(NatPunchError),
-    Connect(Connect),
-    Unknown(Unknown),
-}
-
-impl Response {
-    pub fn deserialize(src: &mut BytesMut) -> Response {
-        // dupe the bytes into a vec because the buffer sucks
-        let bytes: Vec<u8> = src.as_ref().into();
-
-        let magic_number = src.get_u8();
-        match magic_number {
-            0x0B => {
-                NatPunchError::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes))
-            }
-            0x0D => {
-                NatPunch::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes))
-            }
-            0x0E => {
-                Connect::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes))
-            }
-            _ => Response::unknown(bytes)
-        }
-    }
-
-    fn nat_punch(mystery_number: u8, local_host: String, local_port: u32, remote_host: String, remote_port: u32, short_identifier: String) -> Response {
-        Response::NatPunch(NatPunch { mystery_number, local_host, local_port, remote_host, remote_port, short_identifier })
-    }
-
-    fn nat_punch_error(response: String) -> Response {
-        Response::NatPunchError(NatPunchError { response })
-    }
-
-    fn connect(mystery_number: u8, short_identifier: String) -> Response {
-        Response::Connect(Connect { mystery_number, short_identifier })
-    }
-
-    fn unknown(bytes: Vec<u8>) -> Response {
-        Response::Unknown(Unknown { bytes })
-    }
-}
-
-fn handle_err(e: Error, bytes: Vec<u8>) -> Response {
-    eprintln!("parsing error: {}", e.value);
-    Response::unknown(bytes)
-}
-
-trait Deserialize {
+pub trait Deserialize {
     fn deserialize(src: &mut BytesMut) -> Result<Response, Error>;
 }
 
@@ -152,8 +103,9 @@ fn read_string(bytes: &mut BytesMut) -> Result<String, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::protocol::response::Response;
     use bytes::BytesMut;
+
+    use crate::protocol::response::Response;
 
     #[test]
     fn test_deserialize_nat_punch() {

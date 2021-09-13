@@ -4,28 +4,6 @@ use bytes::{BufMut, BytesMut};
 
 use crate::protocol::Error;
 
-pub enum Request {
-    NatPunch(NatPunch),
-    Connect(Connect),
-}
-
-impl Request {
-    pub fn nat_punch(host: String, port: u32, full_identifier: String) -> Request {
-        Request::NatPunch(NatPunch { host, port, full_identifier })
-    }
-
-    pub fn connect(short_identifier: String) -> Request {
-        Request::Connect(Connect { mystery_number: 0, short_identifier })
-    }
-
-    pub fn serialize(self, dst: &mut BytesMut) -> Result<(), Error> {
-        match self {
-            Request::NatPunch(r) => r.serialize(dst),
-            Request::Connect(r) => r.serialize(dst),
-        }
-    }
-}
-
 pub trait Serialize {
     fn serialize(self, dst: &mut BytesMut) -> Result<(), Error>;
 }
@@ -87,7 +65,7 @@ impl Serialize for Connect {
 mod tests {
     use bytes::BytesMut;
 
-    use crate::protocol::request::{Connect, NatPunch, Request, Serialize};
+    use crate::protocol::request::{Connect, NatPunch, Serialize};
 
     #[test]
     fn test_serialize_nat_punch() {
