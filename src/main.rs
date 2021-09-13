@@ -60,37 +60,12 @@ async fn main() {
 
             println!("sending followup connect to {}...", host_addr);
             socket.send((request, host_addr)).await.expect("failed to send connect");
-            println!("got response:");
-
-            let (response, _) = socket.next().await
-                .expect("some connect result")
-                .expect("no connect error");
-
-            match response {
-                Response::NatPunch(r) => println!("{:?}", r),
-                Response::NatPunchError(r) => println!("{:?}", r),
-                Response::Connect(r) => println!("{:?}", r),
-                Response::Unknown(r) => println!("{:?}", r),
-            }
+            println!("sent!");
         }
         Response::NatPunchError(r) => println!("{:?}", r),
         Response::Connect(r) => println!("{:?}", r),
         Response::Unknown(r) => println!("{:?}", r),
     }
-
-    // check for additional response
-    println!("waiting for additional responses...");
-    let (response, _) = socket.next().await
-        .expect("some connect result")
-        .expect("no connect error");
-
-    match response {
-        Response::NatPunch(r) => println!("{:?}", r),
-        Response::NatPunchError(r) => println!("{:?}", r),
-        Response::Connect(r) => println!("{:?}", r),
-        Response::Unknown(r) => println!("{:?}", r),
-    }
-
 
     let mut looping = true;
     while looping {
