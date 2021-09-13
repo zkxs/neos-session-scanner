@@ -13,20 +13,20 @@ pub enum Response {
 }
 
 impl Response {
-    pub fn parse(src: &mut BytesMut) -> Response {
+    pub fn deserialize(src: &mut BytesMut) -> Response {
         // dupe the bytes into a vec because the buffer sucks
         let bytes: Vec<u8> = src.as_ref().into();
 
         let magic_number = src.get_u8();
         match magic_number {
             0x0B => {
-                NatPunchError::parse(src).unwrap_or_else(|e| handle_err(e, bytes))
+                NatPunchError::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes))
             }
             0x0D => {
-                NatPunch::parse(src).unwrap_or_else(|e| handle_err(e, bytes))
+                NatPunch::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes))
             }
             0x0E => {
-                Connect::parse(src).unwrap_or_else(|e| handle_err(e, bytes))
+                Connect::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes))
             }
             _ => Response::unknown(bytes)
         }
@@ -54,8 +54,8 @@ fn handle_err(e: Error, bytes: Vec<u8>) -> Response {
     Response::unknown(bytes)
 }
 
-trait Parse {
-    fn parse(src: &mut BytesMut) -> Result<Response, Error>;
+trait Deserialize {
+    fn deserialize(src: &mut BytesMut) -> Result<Response, Error>;
 }
 
 pub struct NatPunch {
@@ -69,8 +69,8 @@ pub struct NatPunch {
     pub short_identifier: String,
 }
 
-impl Parse for NatPunch {
-    fn parse(src: &mut BytesMut) -> Result<Response, Error> {
+impl Deserialize for NatPunch {
+    fn deserialize(src: &mut BytesMut) -> Result<Response, Error> {
         let mystery_number = read_u8(src)?;
         let local_host = read_string(src)?;
         let local_port = read_u32(src)?;
@@ -85,8 +85,8 @@ pub struct NatPunchError {
     pub response: String,
 }
 
-impl Parse for NatPunchError {
-    fn parse(src: &mut BytesMut) -> Result<Response, Error> {
+impl Deserialize for NatPunchError {
+    fn deserialize(src: &mut BytesMut) -> Result<Response, Error> {
         let error_string = read_string(src)?;
         Ok(Response::nat_punch_error(error_string))
     }
@@ -99,8 +99,8 @@ pub struct Connect {
     pub short_identifier: String,
 }
 
-impl Parse for Connect {
-    fn parse(src: &mut BytesMut) -> Result<Response, Error> {
+impl Deserialize for Connect {
+    fn deserialize(src: &mut BytesMut) -> Result<Response, Error> {
         let mystery_number = read_u8(src)?;
         let short_identifier = read_string(src)?;
         Ok(Response::connect(mystery_number, short_identifier))
@@ -129,7 +129,7 @@ fn read_u32(bytes: &mut BytesMut) -> Result<u32, Error> {
 
 fn read_string(bytes: &mut BytesMut) -> Result<String, Error> {
     if bytes.remaining() >= 4 {
-        let length: usize = bytes.get_u32_le().try_into().unwrap();
+        let length: usize = bytes.get_u32_le().try_into().expect("could not fit u32 into usize");
         if bytes.remaining() >= length {
             let mut str_buf = String::with_capacity(length);
             let read = bytes.take(length).reader().read_to_string(&mut str_buf).unwrap();
@@ -152,10 +152,10 @@ mod tests {
     use bytes::BytesMut;
 
     #[test]
-    fn test_parse_nat_punch() {
+    fn test_deserialize_nat_punch() {
         let vec = hex::decode("0D000D0000003139322E3136382E312E313530EE9B00000D00000037312E33362E3130312E313936EE9B00001C000000732D752D7573666E2D6F72696F6E3A7573666E6C756E61727061726B").unwrap();
         let mut bytes = BytesMut::from(vec.as_slice());
-        let response = Response::parse(&mut bytes);
+        let response = Response::deserialize(&mut bytes);
         if let Response::NatPunch(nat_punch) = response {
             assert_eq!(0, nat_punch.mystery_number);
             assert_eq!("192.168.1.150", nat_punch.local_host);
@@ -169,10 +169,10 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_nat_punch_error() {
+    fn test_deserialize_nat_punch_error() {
         let vec = hex::decode("0B300000005345525645525F474F4E453A31633336633131662D636238652D343366312D393835642D396162393364366638366432").unwrap();
         let mut bytes = BytesMut::from(vec.as_slice());
-        let response = Response::parse(&mut bytes);
+        let response = Response::deserialize(&mut bytes);
         if let Response::NatPunchError(nat_error) = response {
             assert_eq!("SERVER_GONE:1c36c11f-cb8e-43f1-985d-9ab93d6f86d2", nat_error.response);
         } else {
@@ -181,10 +181,10 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_connect() {
+    fn test_deserialize_connect() {
         let vec = hex::decode("0e011c000000732d752d7573666e2d6f72696f6e3a7573666e6c756e61727061726b").unwrap();
         let mut bytes = BytesMut::from(vec.as_slice());
-        let response = Response::parse(&mut bytes);
+        let response = Response::deserialize(&mut bytes);
         if let Response::Connect(connect) = response {
             assert_eq!(1, connect.mystery_number);
             assert_eq!("s-u-usfn-orion:usfnlunarpark", connect.short_identifier);
@@ -192,5 +192,4 @@ mod tests {
             panic!("response was not a Connect");
         }
     }
-
 }

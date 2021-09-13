@@ -18,7 +18,7 @@ impl Decoder for Codec {
         if src.is_empty() {
             Ok(None)
         } else {
-            Ok(Some(Response::parse(src)))
+            Ok(Some(Response::deserialize(src)))
         }
     }
 }
