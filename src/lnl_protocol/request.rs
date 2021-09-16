@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use bytes::{BufMut, BytesMut};
 
-use crate::protocol::Error;
+use crate::lnl_protocol::Error;
 
 pub trait Serialize {
     fn serialize(self, dst: &mut BytesMut) -> Result<(), Error>;
@@ -65,7 +65,7 @@ impl Serialize for Connect {
 mod tests {
     use bytes::BytesMut;
 
-    use crate::protocol::request::{Connect, NatPunch, Serialize};
+    use crate::lnl_protocol::request::{Connect, NatPunch, Serialize};
 
     #[test]
     fn test_serialize_nat_punch() {

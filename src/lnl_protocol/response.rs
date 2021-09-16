@@ -3,7 +3,7 @@ use std::io::Read;
 
 use bytes::{Buf, BytesMut};
 
-use crate::protocol::{Error, Response};
+use crate::lnl_protocol::{Error, Response};
 
 pub trait Deserialize {
     fn deserialize(src: &mut BytesMut) -> Result<Response, Error>;
@@ -105,7 +105,7 @@ fn read_string(bytes: &mut BytesMut) -> Result<String, Error> {
 mod tests {
     use bytes::BytesMut;
 
-    use crate::protocol::response::Response;
+    use crate::lnl_protocol::response::Response;
 
     #[test]
     fn test_deserialize_nat_punch() {

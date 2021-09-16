@@ -6,9 +6,13 @@ use tokio::net::UdpSocket;
 use tokio::time::Duration;
 use tokio_util::udp::UdpFramed;
 
-use crate::protocol::{Codec, Request, Response};
+use crate::lnl_protocol::{Codec, Request, Response};
+use crate::neos_api::{lookup_session, SessionResponse};
 
-mod protocol;
+mod lnl_protocol;
+mod neos_dto;
+mod custom_serializer;
+mod neos_api;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -22,20 +26,33 @@ async fn main() {
             .index(1))
         .get_matches();
 
+    let session_id = matches.value_of("SESSION_ID").expect("Session ID was missing");
+
+    let session = lookup_session(session_id).await;
+    let session_404: bool = session.as_ref()
+        .ok()
+        .and_then(|response| {
+            match response {
+                SessionResponse::Error(s) => Some(s),
+                _ => None,
+            }
+        })
+        .map_or(false, |api_error| api_error.status == 404);
+
+    println!("Session API response: {:?}", session);
+
     let matchmaker_addr: SocketAddr = "matchx.centralus.cloudapp.azure.com:12500"
         .to_socket_addrs()
         .unwrap()
         .next()
         .expect("No DNS results for matchmaker");
 
-    let session_id = matches.value_of("SESSION_ID").expect("Session ID was missing");
-
     let socket = UdpSocket::bind("0.0.0.0:0").await.unwrap();
     let port = socket.local_addr().unwrap().port();
     let mut socket = UdpFramed::new(socket, Codec::default());
     let request = Request::nat_punch("169.254.203.224".into(), port.into(), format!("C;{}", session_id));
 
-    println!("sending request on port {} for {}", port, session_id);
+    println!("sending matchmaker request for {}", session_id);
     socket.send((request, matchmaker_addr)).await.expect("failed to send nat punch");
 
     println!("sent request! awaiting response...");
@@ -48,7 +65,7 @@ async fn main() {
 
     match response {
         Response::NatPunch(r) => {
-            println!("{:?}", r);
+            println!("  {:?}", r);
 
             let host_addr: SocketAddr = format!("{}:{}", r.remote_host, r.remote_port)
                 .to_socket_addrs()
@@ -62,15 +79,16 @@ async fn main() {
             socket.send((request, host_addr)).await.expect("failed to send connect");
             println!("sent!");
         }
-        Response::NatPunchError(r) => println!("{:?}", r),
-        Response::Connect(r) => println!("{:?}", r),
-        Response::Unknown(r) => println!("{:?}", r),
+        Response::NatPunchError(r) => println!("  {:?}", r),
+        Response::Connect(r) => println!("  {:?}", r),
+        Response::Unknown(r) => println!("  {:?}", r),
     }
 
+    println!("waiting for additional responses...");
+    let mut got_response = false;
     let mut looping = true;
     while looping {
         // check for additional response
-        println!("waiting for additional responses...");
         let future = tokio::time::timeout(Duration::from_millis(750), socket.next());
 
         match future.await {
@@ -80,11 +98,12 @@ async fn main() {
                     .expect("no connect error");
 
                 match response {
-                    Response::NatPunch(r) => println!("{:?}", r),
-                    Response::NatPunchError(r) => println!("{:?}", r),
-                    Response::Connect(r) => println!("{:?}", r),
-                    Response::Unknown(r) => println!("{:?}", r),
+                    Response::NatPunch(r) => println!("  {:?}", r),
+                    Response::NatPunchError(r) => println!("  {:?}", r),
+                    Response::Connect(r) => println!("  {:?}", r),
+                    Response::Unknown(r) => println!("  {:?}", r),
                 }
+                got_response = true;
             }
             Err(_) => {
                 // timeout occurred
@@ -92,5 +111,11 @@ async fn main() {
             }
         }
     }
-    println!("Done.");
+
+    if got_response && session_404 {
+        println!("Done. Session appears to be hidden!");
+    } else {
+        println!("Done.");
+    }
 }
+
