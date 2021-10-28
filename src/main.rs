@@ -41,7 +41,7 @@ async fn main() {
 
     println!("Session API response: {:?}", session);
 
-    let matchmaker_addr: SocketAddr = "matchx.centralus.cloudapp.azure.com:12500"
+    let matchmaker_addr: SocketAddr = "matchx.centralus.cloudapp.azure.com:12501"
         .to_socket_addrs()
         .unwrap()
         .next()

@@ -59,7 +59,7 @@ impl Request {
     }
 
     pub fn connect(short_identifier: String) -> Request {
-        Request::Connect(request::Connect { mystery_number: 0, short_identifier })
+        Request::Connect(request::Connect { mystery_number: 1, short_identifier })
     }
 
     pub fn serialize(self, dst: &mut BytesMut) -> Result<(), Error> {
@@ -84,21 +84,23 @@ impl Response {
 
         let magic_number = src.get_u8();
         match magic_number {
-            0x0B => {
+            0x08 => {
                 response::NatPunchError::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes))
             }
-            0x0D => {
-                response::NatPunch::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes))
-            }
-            0x0E => {
-                response::Connect::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes))
+            0x10 => {
+                let packet_hash = src.get_u64();
+                match packet_hash {
+                    0x44DBCBFBC9229161 => response::NatPunch::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes)),
+                    0x4A4F5C2E7984F8D2 => response::Connect::deserialize(src).unwrap_or_else(|e| handle_err(e, bytes)),
+                    _ => Response::unknown(bytes)
+                }
             }
             _ => Response::unknown(bytes)
         }
     }
 
-    fn nat_punch(mystery_number: u8, local_host: String, local_port: u32, remote_host: String, remote_port: u32, short_identifier: String) -> Response {
-        Response::NatPunch(response::NatPunch { mystery_number, local_host, local_port, remote_host, remote_port, short_identifier })
+    fn nat_punch(local_host: String, local_port: u32, remote_host: String, remote_port: u32, short_identifier: String) -> Response {
+        Response::NatPunch(response::NatPunch { local_host, local_port, remote_host, remote_port, short_identifier })
     }
 
     fn nat_punch_error(response: String) -> Response {

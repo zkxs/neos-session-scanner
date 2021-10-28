@@ -41,7 +41,6 @@ pub struct Session {
 pub struct World {
     pub record_id: String,
     pub owner_id: String,
-    pub is_valid: bool,
 }
 
 #[derive(Deserialize, Debug)]

@@ -11,8 +11,6 @@ pub trait Deserialize {
 
 #[derive(Debug)]
 pub struct NatPunch {
-    /// should be zero?
-    pub mystery_number: u8,
     pub local_host: String,
     pub local_port: u32,
     pub remote_host: String,
@@ -23,13 +21,12 @@ pub struct NatPunch {
 
 impl Deserialize for NatPunch {
     fn deserialize(src: &mut BytesMut) -> Result<Response, Error> {
-        let mystery_number = read_u8(src)?;
         let local_host = read_string(src)?;
         let local_port = read_u32(src)?;
         let remote_host = read_string(src)?;
         let remote_port = read_u32(src)?;
         let short_identifier = read_string(src)?;
-        Ok(Response::nat_punch(mystery_number, local_host, local_port, remote_host, remote_port, short_identifier))
+        Ok(Response::nat_punch(local_host, local_port, remote_host, remote_port, short_identifier))
     }
 }
 
@@ -47,7 +44,7 @@ impl Deserialize for NatPunchError {
 
 #[derive(Debug)]
 pub struct Connect {
-    /// should be one?
+    /// should be 0x01
     pub mystery_number: u8,
     /// lowercase, no prefix, exactly matches request
     pub short_identifier: String,
@@ -55,8 +52,8 @@ pub struct Connect {
 
 impl Deserialize for Connect {
     fn deserialize(src: &mut BytesMut) -> Result<Response, Error> {
-        let mystery_number = read_u8(src)?;
         let short_identifier = read_string(src)?;
+        let mystery_number = read_u8(src)?;
         Ok(Response::connect(mystery_number, short_identifier))
     }
 }
@@ -109,16 +106,15 @@ mod tests {
 
     #[test]
     fn test_deserialize_nat_punch() {
-        let vec = hex::decode("0D000D0000003139322E3136382E312E313530EE9B00000D00000037312E33362E3130312E313936EE9B00001C000000732D752D7573666E2D6F72696F6E3A7573666E6C756E61727061726B").unwrap();
+        let vec = hex::decode("1044dbcbfbc92291610d0000003139322e3136382e312e31353007d500000c00000037312e33362e3132352e363307d5000016000000732d752d7573666e2d6f72696f6e3a7573666e617673").unwrap();
         let mut bytes = BytesMut::from(vec.as_slice());
         let response = Response::deserialize(&mut bytes);
         if let Response::NatPunch(nat_punch) = response {
-            assert_eq!(0, nat_punch.mystery_number);
             assert_eq!("192.168.1.150", nat_punch.local_host);
-            assert_eq!(39918, nat_punch.local_port);
-            assert_eq!("71.36.101.196", nat_punch.remote_host);
-            assert_eq!(39918, nat_punch.remote_port);
-            assert_eq!("s-u-usfn-orion:usfnlunarpark", nat_punch.short_identifier);
+            assert_eq!(54535, nat_punch.local_port);
+            assert_eq!("71.36.125.63", nat_punch.remote_host);
+            assert_eq!(54535, nat_punch.remote_port);
+            assert_eq!("s-u-usfn-orion:usfnavs", nat_punch.short_identifier);
         } else {
             panic!("response was not a NatPunch");
         }
@@ -126,11 +122,11 @@ mod tests {
 
     #[test]
     fn test_deserialize_nat_punch_error() {
-        let vec = hex::decode("0B300000005345525645525F474F4E453A31633336633131662D636238652D343366312D393835642D396162393364366638366432").unwrap();
+        let vec = hex::decode("08250000005345525645525f474f4e453a732d752d6e796172756b6f3a6d792d686f6d652d776f726c64").unwrap();
         let mut bytes = BytesMut::from(vec.as_slice());
         let response = Response::deserialize(&mut bytes);
         if let Response::NatPunchError(nat_error) = response {
-            assert_eq!("SERVER_GONE:1c36c11f-cb8e-43f1-985d-9ab93d6f86d2", nat_error.response);
+            assert_eq!("SERVER_GONE:s-u-nyaruko:my-home-world", nat_error.response);
         } else {
             panic!("response was not a NatPunchError");
         }
@@ -138,12 +134,12 @@ mod tests {
 
     #[test]
     fn test_deserialize_connect() {
-        let vec = hex::decode("0e011c000000732d752d7573666e2d6f72696f6e3a7573666e6c756e61727061726b").unwrap();
+        let vec = hex::decode("104a4f5c2e7984f8d214000000732d752d6c657865766f6e65743a6c65786c616201").unwrap();
         let mut bytes = BytesMut::from(vec.as_slice());
         let response = Response::deserialize(&mut bytes);
         if let Response::Connect(connect) = response {
             assert_eq!(1, connect.mystery_number);
-            assert_eq!("s-u-usfn-orion:usfnlunarpark", connect.short_identifier);
+            assert_eq!("s-u-lexevonet:lexlab", connect.short_identifier);
         } else {
             panic!("response was not a Connect");
         }
