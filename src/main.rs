@@ -19,7 +19,7 @@ async fn main() {
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author("Michael Ripley <zkxs00@gmail.com>")
-        .about("Does awesome things")
+        .about("Checks Neos session IDs")
         .arg(Arg::with_name("SESSION_ID")
             .required(true)
             .help("sets the session ID to check")
@@ -118,4 +118,3 @@ async fn main() {
         println!("Done.");
     }
 }
-

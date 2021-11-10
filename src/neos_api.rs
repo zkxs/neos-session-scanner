@@ -31,11 +31,11 @@ async fn deserialize_session(response: hyper::Response<Body>) -> Result<SessionR
             serde_json::from_reader(body.reader())
                 .map_err(|e| format!("error parsing session response body: {:?}", e))
                 .map(|b| SessionResponse::Session(b))
-        },
+        }
         _ => {
             serde_json::from_reader(body.reader())
                 .map_err(|e| format!("error parsing error response body: {:?}", e))
                 .map(|b| SessionResponse::Error(b))
-        },
+        }
     }
 }
